@@ -10,19 +10,20 @@ plt.rcParams['axes.unicode_minus'] = False
 
 # --- 2. 控制器类 (包含所有算法逻辑) ---
 class Controller:
-    """
+    """s
     实现纵向P控制器 + 横向纯跟踪(Pure Pursuit)控制器
-    这个控制器现在"拥有"所有算法逻辑
     """
-    def __init__(self, Kp_v, target_speed, L, K_lookahead, L_lookahead_base, path_data):
-        # 纵向P控制器（速度）
+    def __init__(self, Kp_v, Ki_v, Kd_v, Kp_v_hen, target_speed, L, L_lookahead, path_data):
+        # 纵向PI控制器（速度）
         self.Kp_v = Kp_v
+        self.Ki_v = Ki_v
+        self.Kd_v = Kd_v
         self.target_speed = target_speed
 
         # 横向纯跟踪控制器（转向）
+        self.Kp_v_hen = Kp_v_hen  # 横向控制增益
         self.L = L  # 车辆轴距 (m)
-        self.K_lookahead = K_lookahead # 前瞻距离的速度增益
-        self.L_lookahead_base = L_lookahead_base # 基础前瞻距离 (m)
+        self.L_lookahead = L_lookahead # 基础前瞻距离 (m)
         
         # --- 核心修改 ---
         # 控制器存储它需要的所有路径信息
@@ -31,6 +32,13 @@ class Controller:
         self.path_yaw_raw = path_data.yaw
         self.path_x_wrapped = path_data.x_wrapped
         self.path_y_wrapped = path_data.y_wrapped
+
+        # 积分项初始化
+        self.v_error_integral = 0.0
+        self.previous_v_error = 0.0
+        self.dt = 0.02
+
+        
 
     def normalize_angle(self, angle):
         """将角度归一化到 [-pi, pi]"""
@@ -41,7 +49,6 @@ class Controller:
     # --- 新增的内部方法 ---
     def _find_closest_point(self, x, y):
         """
-        (从 Path 类移入)
         找到路径上离车辆当前位置最近的点
         """
         dx = self.path_x_raw - x
@@ -50,10 +57,8 @@ class Controller:
         closest_index = np.argmin(distances)
         return closest_index, distances[closest_index]
 
-    # --- 新增的内部方法 ---
     def _find_lookahead_point(self, x, y, Ld):
         """
-        (从 Path 类移入)
         找到距离车辆 (x,y) 约 Ld 远的前瞻点
         """
         # 1. 找到最近点 (调用自己的内部方法)
@@ -74,25 +79,34 @@ class Controller:
 
     def control(self, state):
         """
-        (修改：不再需要 path 参数)
         计算控制量：油门（加速度）和前轮转角
         """
         x, y, yaw, v = state
         
         # --- 1. 纵向控制 (P-Controller for Velocity) ---
+
+        # 计算速度误差
         v_error = self.target_speed - v
-        throttle = self.Kp_v * v_error
+        # 计算误差积分
+        self.v_error_integral += v_error * self.dt
+
+        # 计算误差微分 
+        self.v_error_derivative = (v_error - self.previous_v_error) / self.dt
+        self.previous_v_error = v_error
+
+         
+        throttle = self.Kp_v * v_error + self.Ki_v * self.v_error_integral + self.Kd_v * self.v_error_derivative
         
         # --- 2. 横向控制 (Pure Pursuit) ---
-        Ld = self.L_lookahead_base + self.K_lookahead * v
+        Ld = self.L_lookahead
         
         # 调用自己的内部方法
         tx, ty = self._find_lookahead_point(x, y, Ld)
         
-        alpha = np.arctan2(ty - y, tx - x) - yaw
-        alpha = self.normalize_angle(alpha)
-        
-        delta = np.arctan2(2.0 * self.L * np.sin(alpha), Ld)
+        alpha = np.arctan2(ty - y, tx - x) - yaw  #计算即车辆需要转过的角度
+        alpha = self.normalize_angle(alpha)   #归一化角度
+        #用p控，计算转角
+        delta = self.Kp_v_hen * alpha
         
         return throttle, delta
 
@@ -104,32 +118,39 @@ class Controller:
 # --- 3. use the simulation env ---
 
 
-#parameters
+#parameters   
 KP_V = 2.0
-TARGET_SPEED = 10.0
-L_LOOKAHEAD_BASE = 4.0 
-K_LOOKAHEAD = 0.5 
+KI_V = 0.0
+KD_V = 0.0
+
+KP_V_HEN = 2.0
+KI_V_HEN = 0.0
+KD_V_HEN = 0.0
+
+TARGET_SPEED = 2.0
+L_LOOKAHEAD = 3.0 
 
 # --- 初始化环境和智能体 ---
 # 1. 创建"世界"和"地图"
-vehicle = BicycleModel(x=0.0, y=0.0, yaw=np.radians(90), v=0.0, L=5.5, dt=0.1)
+vehicle = BicycleModel(x=0.0, y=0.0, yaw=np.radians(90), v=0.0, L=5.5, dt=0.02)
 path = Path(amplitude=50.0, num_points=100)
 
 # 2. 创建"控制器"，并把"地图" (path) 交给它
 controller = Controller(Kp_v=KP_V, 
+                        Ki_v=KI_V,
+                        Kd_v=KD_V,
+                        Kp_v_hen=KP_V_HEN,
                         target_speed=TARGET_SPEED, 
                         L=vehicle.L,
-                        K_lookahead=K_LOOKAHEAD, 
-                        L_lookahead_base=L_LOOKAHEAD_BASE,
-                        path_data=path) # <--- 在这里把路径数据传入
-
+                        L_lookahead=L_LOOKAHEAD,
+                        path_data=path) 
 # (后续的仿真和绘图设置与之前相同)
-T_SIM = 150 
+T_SIM = 200  
 max_steps = int(T_SIM / vehicle.dt)
 history = {'x': [], 'y': [], 'v': [], 'cte': [], 'yaw_error': [], 'time': []}
 
 # --- 4. 设置画布 ---
-fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(10, 12))
+fig, ((ax1, ax3), (ax2, ax4)) = plt.subplots(2, 2, figsize=(15, 12))
 # 图1: 路径图
 ax1.plot(path.x, path.y, 'b--', label='参考路径 (8字形)')
 ax1.plot(0.0, 0.0, 'go', markersize=10, label='起点')
@@ -142,16 +163,34 @@ ax1.set_ylabel('Y 坐标 (m)')
 ax1.legend(loc='upper right')
 ax1.axis('equal')
 ax1.grid(True)
-# 图2: 误差图
+
+# 图2: 横向跟踪误差图
 cte_line, = ax2.plot([], [], 'g-', label='横向跟踪误差 (m)')
-yaw_error_line, = ax2.plot([], [], 'm-', label='航向误差 (rad)')
-ax2.set_title('跟踪误差-时间图')
+ax2.set_title('横向跟踪误差-时间图')
 ax2.set_xlabel('时间 (s)')
-ax2.set_ylabel('误差')
+ax2.set_ylabel('横向跟踪误差 (m)')
 ax2.legend(loc='upper right')
 ax2.grid(True)
 ax2.set_xlim(0, T_SIM)
-ax2.set_ylim(-3.0, 3.0) 
+
+# 图3: 纵向误差图
+yaw_error_line, = ax3.plot([], [], 'm-', label='纵向误差 (rad)')
+ax3.set_title('纵向误差-时间图')
+ax3.set_xlabel('时间 (s)')
+ax3.set_ylabel('纵向误差 (rad)')
+ax3.legend(loc='upper right')
+ax3.grid(True)
+ax3.set_xlim(0, T_SIM)
+
+# 图4: 速度图
+speed_line, = ax4.plot([], [], 'b-', label='车辆速度 (m/s)')
+ax4.set_title('车辆速度-时间图')
+ax4.set_xlabel('时间 (s)')
+ax4.set_ylabel('车辆速度 (m/s)')
+ax4.legend(loc='upper right')
+ax4.grid(True)
+ax4.set_xlim(0, T_SIM)
+ax4.set_ylim(0, 50.0) 
 plt.tight_layout()
 
 # --- 5. 动画更新函数 ---
@@ -195,33 +234,47 @@ def animate(i):
     vehicle_marker.set_data([current_x], [current_y])
     
     # (通过 controller 的方法来获取前瞻点)
-    Ld = controller.L_lookahead_base + controller.K_lookahead * current_v
+    Ld = controller.L_lookahead
     tx, ty = controller._find_lookahead_point(current_x, current_y, Ld)
     lookahead_marker.set_data([tx], [ty])
     
     cte_line.set_data(history['time'], history['cte'])
     yaw_error_line.set_data(history['time'], history['yaw_error'])
+    speed_line.set_data(history['time'], history['v'])
     
     if i > 10:
-        all_errors = history['cte'] + history['yaw_error']
-        min_err = min(all_errors)
-        max_err = max(all_errors)
-        ax2.set_ylim(min_err - 0.5, max_err + 0.5)
+        # 更新横向误差图的y轴范围
+        min_cte = min(history['cte'])
+        max_cte = max(history['cte'])
+        ax2.set_ylim(min_cte - 0.5, max_cte + 0.5)
+        
+        # 更新纵向误差图的y轴范围
+        min_yaw_error = min(history['yaw_error'])
+        max_yaw_error = max(history['yaw_error'])
+        ax3.set_ylim(min_yaw_error - 0.1, max_yaw_error + 0.1)
+
+    # 检查是否是最后一帧
+    if i == max_steps - 1:
+        print("仿真完成，自动关闭窗口...")
+        plt.close()
 
     return trajectory_line, vehicle_marker, cte_line, yaw_error_line, lookahead_marker
 
 # --- 6. 主函数 ---
 def main():
-    print("开始路径跟踪 (Pure Pursuit) 动态仿真 [模块化架构]...")
+    print("开始路径跟踪 (Pure Pursuit) 动态仿真...")
+
+
     
     ani = animation.FuncAnimation(
         fig, 
         animate, 
         frames=max_steps, 
-        interval=10,  # 10ms (10倍速)
-        blit=False, 
+        interval=500,  # 10ms (10倍速)
+        blit=True, 
         repeat=False
     )
+    
     
     plt.show()
     print("仿真结束。")
