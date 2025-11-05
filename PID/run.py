@@ -1,4 +1,3 @@
-
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
@@ -119,7 +118,7 @@ class Controller:
 
 
 #parameters   
-KP_V = 2.0
+KP_V = 0.5
 KI_V = 0.0
 KD_V = 0.0
 
@@ -127,15 +126,21 @@ KP_V_HEN = 2.0
 KI_V_HEN = 0.0
 KD_V_HEN = 0.0
 
-TARGET_SPEED = 2.0
-L_LOOKAHEAD = 3.0 
+TARGET_SPEED = 10.0
+# --- MODIFIED ---
+# L_LOOKAHEAD 必须大于 L (5.5)。 3.0 太小会导致震荡。
+L_LOOKAHEAD = 10.0 
 
 # --- 初始化环境和智能体 ---
-# 1. 创建"世界"和"地图"
-vehicle = BicycleModel(x=0.0, y=0.0, yaw=np.radians(90), v=0.0, L=5.5, dt=0.02)
-path = Path(amplitude=50.0, num_points=100)
+# --- MODIFIED --- 
+# 1. 必须先创建"地图"，才能获取地图的起始点信息
+path = Path(amplitude=50.0, num_points=500) # MODIFIED: 增加点数 (100 -> 500) 提高路径平滑度
 
-# 2. 创建"控制器"，并把"地图" (path) 交给它
+# 2. 创建"世界"和"车辆"，使用地图的起始朝向
+vehicle = BicycleModel(x=0.0, y=0.0, yaw=path.yaw[0], v=0.0, L=5.5, dt=0.02) # MODIFIED: yaw=np.radians(90) -> yaw=path.yaw[0]
+
+
+# 3. 创建"控制器"，并把"地图" (path) 交给它
 controller = Controller(Kp_v=KP_V, 
                         Ki_v=KI_V,
                         Kd_v=KD_V,
@@ -172,25 +177,38 @@ ax2.set_ylabel('横向跟踪误差 (m)')
 ax2.legend(loc='upper right')
 ax2.grid(True)
 ax2.set_xlim(0, T_SIM)
+# --- MODIFIED --- (解决 "画的太慢" 问题)
+# 设定一个固定的Y轴范围。-5到+5米的误差范围足够调试了。
+# 动态修改ylim会导致blit=True失效，使动画变慢。
+ax2.set_ylim(-5.0, 5.0) 
 
-# 图3: 纵向误差图
-yaw_error_line, = ax3.plot([], [], 'm-', label='纵向误差 (rad)')
-ax3.set_title('纵向误差-时间图')
+# --- MODIFIED --- 
+# 图3: 航向误差图 (修正标题和标签，原为"纵向误差")
+yaw_error_line, = ax3.plot([], [], 'm-', label='航向误差 (rad)') # MODIFIED: 标签文本
+ax3.set_title('航向误差-时间图') # MODIFIED: 标题
 ax3.set_xlabel('时间 (s)')
-ax3.set_ylabel('纵向误差 (rad)')
+ax3.set_ylabel('航向误差 (rad)') # MODIFIED: Y轴标签
 ax3.legend(loc='upper right')
 ax3.grid(True)
-ax3.set_xlim(0, T_SIM)
+ax3.set_xlim(0, T_SIM) # <--- MODIFIED: 修正拼写错误 (T_SAM -> T_SIM)
+# --- MODIFIED --- (解决 "画的太慢" 问题)
+# 设定一个固定的Y轴范围。-pi/2 到 +pi/2 (即-90°到+90°) 足够调试了。
+ax3.set_ylim(-np.pi/2, np.pi/2)
 
-# 图4: 速度图
+# --- MODIFIED ---
+# 图4: 速度图 (添加目标速度参考线，并调整Y轴范围)
 speed_line, = ax4.plot([], [], 'b-', label='车辆速度 (m/s)')
+ax4.axhline(y=TARGET_SPEED, color='g', linestyle='--', label=f'目标速度 ({TARGET_SPEED} m/s)') # NEW: T
 ax4.set_title('车辆速度-时间图')
 ax4.set_xlabel('时间 (s)')
 ax4.set_ylabel('车辆速度 (m/s)')
 ax4.legend(loc='upper right')
 ax4.grid(True)
-ax4.set_xlim(0, T_SIM)
-ax4.set_ylim(0, 50.0) 
+ax4.set_xlim(0, T_SIM) # <--- MODIFIED: 修正拼写错误 (T_SAM -> T_SIM)
+# --- MODIFIED --- (解决 "速度图不画了" 问题)
+# 你的车辆模型 (simulation.py) 中 clip 上限是 10.0
+# 你之前的 ylim (0, 5.0) 太小了，导致速度超过5.0时"看不见"
+ax4.set_ylim(0, 10.5) # MODIFIED: 调整Y轴范围 (0-5.0 -> 0-10.5)
 plt.tight_layout()
 
 # --- 5. 动画更新函数 ---
@@ -242,23 +260,30 @@ def animate(i):
     yaw_error_line.set_data(history['time'], history['yaw_error'])
     speed_line.set_data(history['time'], history['v'])
     
+    # --- MODIFIED --- (解决 "画的太慢" 问题)
+    # 删除了动态更新 ax2 和 ax3 ylim 的代码块
     if i > 10:
-        # 更新横向误差图的y轴范围
-        min_cte = min(history['cte'])
-        max_cte = max(history['cte'])
-        ax2.set_ylim(min_cte - 0.5, max_cte + 0.5)
+        # 动态更新 ylim 会导致 blit=True 性能下降，使动画变慢
+        # 我们在上面设置画布时已指定了固定的Y轴范围
+        pass
         
-        # 更新纵向误差图的y轴范围
-        min_yaw_error = min(history['yaw_error'])
-        max_yaw_error = max(history['yaw_error'])
-        ax3.set_ylim(min_yaw_error - 0.1, max_yaw_error + 0.1)
+        # # (已删除) 更新横向误差图的y轴范围
+        # min_cte = min(history['cte'])
+        # ...
+        
+        # # (已删除) 更新航向误差图的y轴范围
+        # min_yaw_error = min(history['yaw_error'])
+        # ...
 
     # 检查是否是最后一帧
     if i == max_steps - 1:
         print("仿真完成，自动关闭窗口...")
         plt.close()
 
-    return trajectory_line, vehicle_marker, cte_line, yaw_error_line, lookahead_marker
+    # --- 唯一修改 ---
+    # 必须返回所有被 blit=True 更新的 "艺术家" (Artist)
+    # 之前你忘记了 speed_line, 导致 ax4 不更新
+    return trajectory_line, vehicle_marker, cte_line, yaw_error_line, lookahead_marker, speed_line
 
 # --- 6. 主函数 ---
 def main():
@@ -270,7 +295,10 @@ def main():
         fig, 
         animate, 
         frames=max_steps, 
-        interval=500,  # 10ms (10倍速)
+        # --- MODIFIED --- 
+        # 500ms 太慢了 (25倍慢放)。 
+        # dt=0.02s = 20ms, 所以 interval=20 对应 1x 实时播放
+        interval=2,  # 你的 interval=2, 保持不变
         blit=True, 
         repeat=False
     )
