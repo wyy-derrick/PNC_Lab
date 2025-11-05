@@ -8,7 +8,7 @@ from simulation import BicycleModel, Path
 plt.rcParams['font.sans-serif'] = ['SimHei']
 plt.rcParams['axes.unicode_minus'] = False  
 
-# --- 2. 控制器 (包含所有算法逻辑) ---
+# --- 2. 控制器类 (包含所有算法逻辑) ---
 class Controller:
     """
     实现纵向P控制器 + 横向纯跟踪(Pure Pursuit)控制器
@@ -96,11 +96,15 @@ class Controller:
         
         return throttle, delta
 
-# --- 3. 仿真和动画设置 ---
 
-# !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-# ！！！ 调整参数区 ！！！
-# !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+
+
+
+# --- 3. use the simulation env ---
+
+
+#parameters
 KP_V = 2.0
 TARGET_SPEED = 10.0
 L_LOOKAHEAD_BASE = 4.0 
@@ -108,8 +112,8 @@ K_LOOKAHEAD = 0.5
 
 # --- 初始化环境和智能体 ---
 # 1. 创建"世界"和"地图"
-vehicle = BicycleModel(x=0.0, y=-10.0, yaw=np.radians(90), v=0.0, L=2.5, dt=0.1)
-path = Path(amplitude=50.0, num_points=1000)
+vehicle = BicycleModel(x=0.0, y=0.0, yaw=np.radians(90), v=0.0, L=5.5, dt=0.1)
+path = Path(amplitude=50.0, num_points=100)
 
 # 2. 创建"控制器"，并把"地图" (path) 交给它
 controller = Controller(Kp_v=KP_V, 
@@ -128,7 +132,7 @@ history = {'x': [], 'y': [], 'v': [], 'cte': [], 'yaw_error': [], 'time': []}
 fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(10, 12))
 # 图1: 路径图
 ax1.plot(path.x, path.y, 'b--', label='参考路径 (8字形)')
-ax1.plot(0.0, -10.0, 'go', markersize=10, label='起点')
+ax1.plot(0.0, 0.0, 'go', markersize=10, label='起点')
 trajectory_line, = ax1.plot([], [], 'r-', label='车辆实际轨迹')
 vehicle_marker, = ax1.plot([], [], 'ro', label='车辆当前位置')
 lookahead_marker, = ax1.plot([], [], 'mo', markersize=8, label='前瞻点')
@@ -215,7 +219,7 @@ def main():
         animate, 
         frames=max_steps, 
         interval=10,  # 10ms (10倍速)
-        blit=True, 
+        blit=False, 
         repeat=False
     )
     

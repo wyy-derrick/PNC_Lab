@@ -5,7 +5,7 @@ class BicycleModel:
     """
     实现一个运动学自行车模型
     """
-    def __init__(self, x=0.0, y=0.0, yaw=0.0, v=0.0, L=10.5, dt=0.1):
+    def __init__(self, x=0.0, y=0.0, yaw=0.0, v=0.0, L=2.5, dt=0.1):
         self.x = x
         self.y = y
         self.yaw = yaw
