@@ -10,7 +10,7 @@ map:
   width: 120
   height: 120
   random_start_goal: true
-  min_start_goal_dist: 60
+  min_start_goal_dist: 100
   obs_num_min: 10
   obs_num_max: 20
   circle_r_min: 1
