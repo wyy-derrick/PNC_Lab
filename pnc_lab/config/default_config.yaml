@@ -1,0 +1,40 @@
+vehicle:
+  L: 2.5
+  max_steer: 0.6
+  max_acc: 2.0
+  dt: 0.1
+  car_length: 4.0
+  car_width: 2.0
+
+map:
+  width: 120
+  height: 120
+  random_start_goal: true
+  min_start_goal_dist: 60
+  obs_num_min: 10
+  obs_num_max: 20
+  circle_r_min: 1
+  circle_r_max: 4
+  rect_w_min: 6
+  rect_w_max: 20
+  rect_h_min: 2
+  rect_h_max: 8
+  rect_ratio: 0.5
+  near_fail_dist: 2.0
+
+planning:
+  grid_size: 1.0
+
+control:
+  target_speed: 2.0
+  pure_pursuit:
+    k: 0.1
+    L_min: 2.0
+  pid:
+    kp: 1.0
+    ki: 0.1
+    kd: 0.05
+
+vis:
+  show_obstacles: true
+  pause: 0.03
