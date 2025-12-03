@@ -14,13 +14,26 @@ class Visualizer:
         self.ax.cla(); self.ax.set_aspect('equal')
         self.ax.set_xlim(0,self.m['width']); self.ax.set_ylim(0,self.m['height'])
         if self.show:
-            [self.ax.add_patch(plt.Circle((o[1],o[2]),o[3],fc='k')) if o[0]=='c' else self.ax.add_patch(plt.Rectangle((o[1]-o[3]/2,o[2]-o[4]/2),o[3],o[4],fc='k')) for o in self.obs]
-        if path: self.ax.plot(*zip(*[(p.x,p.y) for p in path]),'r--')
+            if self.m.get('type')=='road':
+                C=[(o[1],o[2],o[3]) for o in self.obs if o[0]=='c']
+                if C:
+                    x,y,r=zip(*C)
+                    self.ax.scatter(x,y,s=[(ri*10)**2 for ri in r],c='k')
+            else:
+                [self.ax.add_patch(plt.Circle((o[1],o[2]),o[3],fc='k')) if o[0]=='c' else self.ax.add_patch(plt.Rectangle((o[1]-o[3]/2,o[2]-o[4]/2),o[3],o[4],fc='k')) for o in self.obs]
+        if path:
+            if self.m.get('type') == 'road':
+                 # road模式绘制红色实线参考线
+                 self.ax.plot(*zip(*[(p.x,p.y) for p in path]),'r-', linewidth=2, alpha=0.5)
+            else:
+                 self.ax.plot(*zip(*[(p.x,p.y) for p in path]),'r--')
         hl=self.v['car_length']/2; hw=self.v['car_width']/2; c=math.cos(s.yaw); d=math.sin(s.yaw)
         pts=[(hl,hw),(hl,-hw),(-hl,-hw),(-hl,hw),(hl,hw)]; R=lambda X,Y:(s.x+X*c-Y*d,s.y+X*d+Y*c)
         poly=[R(*p) for p in pts]; self.ax.add_patch(plt.Polygon(poly,fc='b',ec='b',alpha=.6))
         for X,Y in [(hl,hw),(hl,-hw),(-hl,-hw),(-hl,hw)]:
             wx,wy=R(X,Y); self.ax.add_patch(plt.Circle((wx,wy),0.2,fc='k'))
+        # 绘制航向角箭头
+        al=self.v['car_length']; self.ax.arrow(s.x,s.y,al*c,al*d,head_width=0.8,head_length=1.0,fc='k',ec='k',length_includes_head=True)
         self.h1.append(acc); self.h2.append(steer)
         self.ax1.cla(); self.ax1.plot(self.h1,'g'); self.ax1.set_title('Lon Acc Cmd'); self.ax1.grid(True)
         self.ax2.cla(); self.ax2.plot(self.h2,'m'); self.ax2.set_title('Lat Steer Cmd'); self.ax2.grid(True)

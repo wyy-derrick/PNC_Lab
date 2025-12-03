@@ -7,10 +7,12 @@ vehicle:
   car_width: 2.0
 
 map:
+  type: maze # normal | road | maze
   width: 120
   height: 120
-  random_start_goal: true
+  random_start_goal: truemaze
   min_start_goal_dist: 100
+  random_obstacles: false # 是否在 normal 模式下生成随机障碍物
   obs_num_min: 10
   obs_num_max: 20
   circle_r_min: 1
@@ -21,19 +23,33 @@ map:
   rect_h_max: 8
   rect_ratio: 0.5
   near_fail_dist: 2.0
+  road:
+    lane_width: 8.0
+    boundary_step: 1.0
+    eight_A: 30.0
+    eight_B: 20.0
+    eight_loops: 3
+    eight_points: 600
+    finish_laps: 3
+    finish_radius: 2.0
+
+  maze:
+    cell: 8.0
+    wall: 2.0
+    start_yaw: 0.0
 
 planning:
   grid_size: 1.0
 
 control:
-  target_speed: 2.0
+  target_speed: 25.0
   pure_pursuit:
     k: 0.1
     L_min: 2.0
   pid:
     kp: 1.0
-    ki: 0.1
-    kd: 0.05
+    ki: 0.0
+    kd: 0.0
 
 vis:
   show_obstacles: true

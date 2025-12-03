@@ -15,7 +15,6 @@ class PurePursuitController(ControllerBase):
     def compute_command(self, state, path):
         if not path: return 0.0, 0.0, None
         
-        # 1. 纵向 PID 控制
         err = self.target_speed - state.v
         self.sum_err += err * self.dt
         acc = (self.cfg_pid['kp'] * err + 
