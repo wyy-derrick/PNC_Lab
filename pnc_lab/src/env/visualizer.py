@@ -9,7 +9,7 @@ class Visualizer:
             self.h1=[]; self.h2=[]
         except: pass
 
-    def render(self, path, s, acc=0.0, steer=0.0):
+    def render(self, path, s, acc=0.0, steer=0.0, path2=None, color2='g--'):
         if not plt.get_fignums(): return
         self.ax.cla(); self.ax.set_aspect('equal')
         self.ax.set_xlim(0,self.m['width']); self.ax.set_ylim(0,self.m['height'])
@@ -22,6 +22,8 @@ class Visualizer:
             else:
                 [self.ax.add_patch(plt.Circle((o[1],o[2]),o[3],fc='k')) if o[0]=='c' else self.ax.add_patch(plt.Rectangle((o[1]-o[3]/2,o[2]-o[4]/2),o[3],o[4],fc='k')) for o in self.obs]
         if path:
+            if path2:
+                self.ax.plot(*zip(*[(p.x, p.y) for p in path2]), color2, linewidth=2, alpha=0.5)
             if self.m.get('type') == 'road':
                  # road模式绘制红色实线参考线
                  self.ax.plot(*zip(*[(p.x,p.y) for p in path]),'r-', linewidth=2, alpha=0.5)
